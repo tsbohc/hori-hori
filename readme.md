@@ -1,6 +1,6 @@
 # hori-hori
 
-A tiny dotfiles templating and management framework written in bash and awk in `~150 loc`
+A tiny dotfiles templating and management framework written in bash and awk in `150 loc`
 
 Consists of three main parts:
 - Configuration language
@@ -90,6 +90,8 @@ In the above example, `render` will compile a template with the current global c
 
 ## addendum
 
-This project was a personal challenge of mine. It's more of a show-and-tell than a practical tool. I advise you not to use it.
-
 Honestly, I like bash. I think it has such a strong character, and it's limitations cause one to seek novel solutions to everyday problems. Writing bash is like taking a hike in the mountains. A nice break from other, more comfortable languages.
+
+This project was a personal challenge of mine. It's more of a show-and-tell than a practical tool.
+
+I advise you not to use it.
