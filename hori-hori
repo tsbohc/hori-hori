@@ -40,10 +40,7 @@ BEGIN {
         path = (path)(vname[i])"_"
       }
       if (substr(val, 1, 8) == "require ") {
-        #print "  "
-        #print ". "val
         printf("%s '%s'\n", (val), (prefix)(path)(key)"_")
-        #print "  "
       } else {
         printf("__%s=%s\n", (prefix)(path)(key), val);
       }
@@ -65,8 +62,7 @@ require() { # transpile config into bash variables
   done <<< "$output"
 }
 
-#eval "$(require conf)" # load config
-require conf
+eval "$(require conf)" # load config
 
 # -- templating engine --
 

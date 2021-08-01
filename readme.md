@@ -2,7 +2,7 @@
 
 A tiny dotfiles templating and management framework written in bash and awk in `150 loc`
 
-Consists of three main parts:
+It consists of three main parts:
 - Configuration language
 - Templating engine
 - Package manager
@@ -54,7 +54,7 @@ The templating engine supports nested keys, meaning it will perform multiple loo
 ```bash
 Here is a nice black: "{% {{colo}_black} %}"
 ```
-With the above context will be render to:
+With the above context will be rendered to:
 ```bash
 Here is a nice black: "#000000"
 ```
