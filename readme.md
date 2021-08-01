@@ -86,7 +86,7 @@ weed() {
 
 When installing or uninstalling a dotfile, hori-hori will run the `grow` or `weed` function respectively. A few hooks are predefined.
 
-In the above example, `render` will compile a template with the current global context into a cache directory and returns a path to the compiled file. It is then passed to a function that will it with the target location.
+In the above example, `render` will compile a template with the current global context into a cache directory and return the path to the compiled file. It is then passed to a function that will create a symlink from it to the target location.
 
 ## addendum
 
