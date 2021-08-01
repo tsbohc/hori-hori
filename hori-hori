@@ -66,7 +66,7 @@ eval "$(require conf)" # load config
 
 # -- templating engine --
 
-template() { # render a string with __context
+template() { # render a string with config as context
   local input="$1"
   local expr_re='\{%[[:space:]]([^ ]+)[[:space:]]%\}'
   local leaf_re='\{([^\{\}]+)\}'
@@ -74,8 +74,8 @@ template() { # render a string with __context
     expr="${BASH_REMATCH[0]}"
     body="${BASH_REMATCH[1]}"
     while [[ $body =~ $leaf_re ]]; do
-      KEY="__${BASH_REMATCH[1]}"
-      body="${body/${BASH_REMATCH[0]}/${!KEY}}"
+      key="__${BASH_REMATCH[1]}"
+      body="${body/${BASH_REMATCH[0]}/${!key}}"
     done
     input="${input/$expr/$body}"
   done
@@ -113,7 +113,6 @@ render() { # render a file and return its stored path
 link() { # create a symlink
   [[ "$1" == *"$HORI"* ]] && local source="$1" || local source="$REPO/$PACK/$1"
   local target="${2/\~/$HOME}"
-  #echo "link $source $target"
   ln -sfn "$source" "$target"
 }
 
