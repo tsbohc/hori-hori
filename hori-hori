@@ -1,68 +1,37 @@
 #!/bin/bash
 
-# TODO fzf
+# zsh completion how-to
+# compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
+
+# TODO
+# -U update all
+# -u update specific package
 
 REPO="$HOME/.garden/etc"
 HORI="$HOME/.config/hori"
 PACK="" # package currently being processed
 
-# {{{ -- awk land ---
-read -r -d '' AWK <<'EOF'
-BEGIN {
-  FS=": "
-} {
-  # get indent in twos
-  match($0, /^ */)
-  indent = RLENGTH / 2
+# -- ntoml to bash --
 
-  # strip indent from the key
-  key=substr($1, RLENGTH + 1)
-  com=substr(key, 1, 1)
-
-  # skip comments
-  if (com != "#" && length(key) > 0) {
-    val = ""
-    # get everything after the first delimiter match
-    for (i = 2; i <= NF; i++) {
-      val = (val)($i)": "
-    }
-    # remove trailing delimiter
-    val = substr(val, 1, length(val) - 2)
-
-    # https://stackoverflow.com/a/21189044
-    vname[indent] = key
-    for (i in vname) {
-      if (i > indent) { delete vname[i] }
-    }
-    if (length(val) > 0) {
-      path = ""
-      for (i = 0; i < indent; i++) {
-        path = (path)(vname[i])"_"
-      }
-      if (substr(val, 1, 8) == "require ") {
-        printf("%s '%s'\n", (val), (prefix)(path)(key)"_")
-      } else {
-        printf("__%s=%s\n", (prefix)(path)(key), val);
-      }
-    }
-  }
-}
-EOF
-# }}}
-
-require() { # transpile config into bash variables
+import() { # transpile toml-like config into into bash variables
   local prefix="$2"
-  local output="$(awk -v prefix="$prefix" "$AWK" "$REPO/hori-hori/$1")"
+  local section_re='^\[(.*)\]'
+  local kvpair_re='(.*)[[:space:]]=[[:space:]](.*)'
+  local import_re='\$\((import[[:space:]].*)\)'
   while read -r line; do
-    if [[ $line == "require "* ]]; then
-      eval "$line"
-    else
-      echo "$line"
+    if [[ $line =~ $section_re ]]; then
+      local section="${BASH_REMATCH[1]/\./\_}_"
+    elif [[ $line =~ $kvpair_re ]]; then
+      [[ "$prefix" == "$section" ]] && \
+        echo "__${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}" || \
+        echo "__${prefix}${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}"
+    elif [[ $line =~ $import_re ]]; then
+      eval "${BASH_REMATCH[1]} ${section}"
     fi
-  done <<< "$output"
+  done < "$REPO/hori-hori/$1"
 }
 
-eval "$(require conf)" # load config
+eval "$(import conf)" # load config
 
 # -- templating engine --
 
@@ -92,6 +61,11 @@ once() { # run function 2 in package 1 once if defined
   fi
 }
 
+command -v dunstify &> /dev/null && \
+  notify() { # set up notifications if we can
+    dunstify "hori" "$*"
+  } || notify() { : ; }
+
 readme() { # generate a readme based on currently used .files
   local txt="### .files currently in use"$'\n'"\`\`\`"$'\n'
   for p in $HORI/* ; do txt+="${p/$HORI\//}"$'\n' ; done
@@ -113,6 +87,7 @@ render() { # render a file and return its stored path
 link() { # create a symlink
   [[ "$1" == *"$HORI"* ]] && local source="$1" || local source="$REPO/$PACK/$1"
   local target="${2/\~/$HOME}"
+  mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
   ln -sfn "$source" "$target"
 }
 
@@ -125,6 +100,7 @@ unlink() { # remove a symlink
   if [[ -d "$REPO/$1" ]]; then
     once "$1" grow
     mkdir -p "$HORI/$1"
+    notify "install $1"
   fi
 }
 
@@ -132,6 +108,7 @@ unlink() { # remove a symlink
   if [[ -d "$HORI/$1" ]]; then
     once "$1" weed # TODO check this
     rm -r "$HORI/$1"
+    notify "remove $1"
   fi
 }
 

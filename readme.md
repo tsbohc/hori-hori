@@ -1,19 +1,19 @@
 # hori-hori
 
-A tiny dotfiles templating and management framework written in bash and awk in `150 loc`
+A tiny dotfiles templating and management framework written in bash in `150 loc`
 
 It consists of three main parts:
-- Configuration language
+- Configuration parser
 - Templating engine
 - Package manager
 
-### nyaml
-A minimal, indentation based configuration language inspired by yaml. Can load external files into the current position on the tree. Supports key value pairs and whole line comments. Compiles to bash variables.
+### nyoml
+A minimal configuration language inspired by toml. Can load external files into the current position on the tree. Supports key value pairs and whole line comments. Compiles to bash variables.
 
 <table>
 <tr>
 <th align="center">
-nyaml source
+nyoml source
 </th>
 <th align="center">
 bash target
@@ -22,13 +22,14 @@ bash target
 <tr>
 <td>
 
-```yaml
+```toml
 # varsets
-colo: "limestone"
-iosevka: ''
-  family: "Iosevka Custom"
-  size: 12
-limestone: require varsets/limestone
+colo = "limestone"
+[font.iosevka]
+family = "Iosevka Custom"
+size = 12
+[limestone]
+$(import "varsets/limestone")
 ```
 
 </td>
@@ -36,9 +37,8 @@ limestone: require varsets/limestone
 
 ```bash
 __colo="limestone"
-__iosevka=''
-__iosevka_family="Iosevka Custom"
-__iosevka_size=12
+__font_iosevka_family="Iosevka Custom"
+__font_iosevka_size=12
 __limestone_black="#000000"
 __limestone_white="#ffffff"
 ```
@@ -59,7 +59,7 @@ With the above context will be rendered to:
 Here is a nice black: "#000000"
 ```
 
-Due to the nature of how nyaml is implemented, evaluating a leaf is a matter of replacing it with its `${!key}`.
+Due to the nature of how nyoml is implemented, evaluating a leaf is a matter of replacing it with its `${!key}`.
 
 ### package manager
 
