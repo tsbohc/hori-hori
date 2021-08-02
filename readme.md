@@ -22,7 +22,7 @@ bash target
 <tr>
 <td>
 
-```toml
+```bash
 # varsets
 colo = "limestone"
 [font.iosevka]
