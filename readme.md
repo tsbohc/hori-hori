@@ -41,6 +41,7 @@ __font_iosevka_family="Iosevka Custom"
 __font_iosevka_size=12
 __limestone_black="#000000"
 __limestone_white="#ffffff"
+__limestone_section_foo="bar"
 ```
 
 </td>

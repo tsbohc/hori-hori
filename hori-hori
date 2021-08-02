@@ -1,17 +1,16 @@
 #!/bin/bash
 
-# zsh completion how-to
-# compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
+# hori-hori - versatile japanese gardening knife
+# zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
 # TODO
-# -U update all
-# -u update specific package
+# -U update all, -u update specific package
 
 REPO="$HOME/.garden/etc"
 HORI="$HOME/.config/hori"
 PACK="" # package currently being processed
 
-# -- ntoml to bash --
+# -- nyoml to bash --
 
 import() { # transpile toml-like config into into bash variables
   local prefix="$2"
@@ -29,9 +28,7 @@ import() { # transpile toml-like config into into bash variables
       eval "${BASH_REMATCH[1]} ${section}"
     fi
   done < "$REPO/hori-hori/$1"
-}
-
-eval "$(import conf)" # load config
+} ; eval "$(import conf)"
 
 # -- templating engine --
 
@@ -117,7 +114,7 @@ case "$subcmd" in
   s|-s|setup)  for p in "$@"; do :grow "$p"; done ; readme ;;
   r|-r|remove) for p in "$@"; do :weed "$p"; done ; readme ;;
   l|-l|list)   for p in $HORI/*; do echo "${p/$HORI\//}"; done ;;
-  *) echo "hori-hori - tiny dotifles management and templating framework"$'\n' \
-          "  <setup> or <remove> leaves"$'\n' \
-          "  <list> installed leaves" ;;
+  *) echo "hori-hori - tiny dotfiles management and templating framework"$'\n' \
+          "  <setup> or <remove> packages"$'\n' \
+          "  <list> installed packages" ;;
 esac
