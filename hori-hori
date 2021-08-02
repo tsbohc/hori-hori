@@ -5,6 +5,10 @@
 
 # TODO
 # -U update all, -u update specific package
+# instead of doing autostart subcmd, i need a
+# hori-hori -h autostart
+# options that will run the specified hook for every installed package
+# 'hori-hori' -U is just 'hori-hori -h grow'
 
 REPO="$HOME/.garden/etc"
 HORI="$HOME/.config/hori"
@@ -50,6 +54,11 @@ template() { # render a string with config as context
 
 # -- utils --
 
+command -v dunstify &> /dev/null && \
+  notify() { # set up notifications if we can
+    dunstify "hori" "$*"
+  } || notify() { : ; }
+
 once() { # run function 2 in package 1 once if defined
   PACK="$1"
   . "$REPO/$PACK/hori.sh"
@@ -58,10 +67,12 @@ once() { # run function 2 in package 1 once if defined
   fi
 }
 
-command -v dunstify &> /dev/null && \
-  notify() { # set up notifications if we can
-    dunstify "hori" "$*"
-  } || notify() { : ; }
+all() { # run $1 $p $2 for every installed package
+  [[ "$1" == "once" ]] && notify "run '$2' for all installed"
+  for p in $HORI/*; do
+    "$1" "${p/$HORI\//}" "$2"
+  done
+}
 
 readme() { # generate a readme based on currently used .files
   local txt="### .files currently in use"$'\n'"\`\`\`"$'\n'
@@ -113,8 +124,10 @@ subcmd="$1" ; shift
 case "$subcmd" in
   s|-s|setup)  for p in "$@"; do :grow "$p"; done ; readme ;;
   r|-r|remove) for p in "$@"; do :weed "$p"; done ; readme ;;
-  l|-l|list)   for p in $HORI/*; do echo "${p/$HORI\//}"; done ;;
+  l|-l|list)   all echo ;;
+  h|-h|hook)   all once $1 ;;
   *) echo "hori-hori - tiny dotfiles management and templating framework"$'\n' \
           "  <setup> or <remove> packages"$'\n' \
+          "  <hook> run hook in all installed packages"$'\n' \
           "  <list> installed packages" ;;
 esac
