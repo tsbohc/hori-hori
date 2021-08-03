@@ -4,11 +4,7 @@
 # zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
 # TODO
-# -U update all, -u update specific package
-# instead of doing autostart subcmd, i need a
-# hori-hori -h autostart
-# options that will run the specified hook for every installed package
-# 'hori-hori' -U is just 'hori-hori -h grow'
+# simplify hook calling, so that hori-hori -h grow [packages...] is valid instead of hori-hori s [p..]?
 
 REPO="$HOME/.garden/etc"
 HORI="$HOME/.config/hori"
@@ -104,6 +100,10 @@ unlink() { # remove a symlink
   [[ -L "$target" ]] && rm "$target"
 }
 
+launch() { # kill existing process and run command
+  pkill -x "$1" ; sleep 0.2 ; "$@"
+}
+
 :grow() { # install package
   if [[ -d "$REPO/$1" ]]; then
     once "$1" grow
@@ -114,7 +114,7 @@ unlink() { # remove a symlink
 
 :weed() { # uninstall package
   if [[ -d "$HORI/$1" ]]; then
-    once "$1" weed # TODO check this
+    once "$1" weed
     rm -r "$HORI/$1"
     notify "remove $1"
   fi
