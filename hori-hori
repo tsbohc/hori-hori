@@ -1,29 +1,25 @@
 #!/bin/bash
 
-# hori-hori - versatile japanese gardening knife
+# hori-hori - versatile japanese gardening knife, by tsbohc
 # zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
-# TODO
-# simplify hook calling, so that hori-hori -h grow [packages...] is valid instead of hori-hori s [p..]?
+REPO="$HOME/.garden/etc"  # package repository
+HORI="$HOME/.config/hori" # cache directory
 
-REPO="$HOME/.garden/etc"
-HORI="$HOME/.config/hori"
-PACK="" # package currently being processed
-
-# -- nyoml to bash --
+# --- nyoml to bash ---
 
 import() { # transpile toml-like config into into bash variables
-  local prefix="$2"
+  local prefix=$2
   local section_re='^\[(.*)\]'
   local kvpair_re='(.*)[[:space:]]=[[:space:]](.*)'
   local import_re='\$\((import[[:space:]].*)\)'
   while read -r line; do
     if [[ $line =~ $section_re ]]; then
-      local section="${BASH_REMATCH[1]/\./\_}_"
+      local section=${BASH_REMATCH[1]/\./\_}_
     elif [[ $line =~ $kvpair_re ]]; then
-      [[ "$prefix" == "$section" ]] && \
-        echo "__${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}" || \
-        echo "__${prefix}${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}"
+      if [[ $prefix == "$section" ]]; then
+        echo "__${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}" ; else
+        echo "__${prefix}${section}${BASH_REMATCH[1]}=${BASH_REMATCH[2]}" ; fi
     elif [[ $line =~ $import_re ]]; then
       eval "${BASH_REMATCH[1]} ${section}"
     fi
@@ -33,17 +29,17 @@ import() { # transpile toml-like config into into bash variables
 # -- templating engine --
 
 template() { # render a string with config as context
-  local input="$1"
+  local input=$1
   local expr_re='\{%[[:space:]]([^ ]+)[[:space:]]%\}'
   local leaf_re='\{([^\{\}]+)\}'
   while [[ $input =~ $expr_re ]]; do
-    expr="${BASH_REMATCH[0]}"
-    body="${BASH_REMATCH[1]}"
+    expr=${BASH_REMATCH[0]}
+    body=${BASH_REMATCH[1]}
     while [[ $body =~ $leaf_re ]]; do
-      key="__${BASH_REMATCH[1]}"
-      body="${body/${BASH_REMATCH[0]}/${!key}}"
+      key=__${BASH_REMATCH[1]}
+      body=${body/${BASH_REMATCH[0]}/${!key}}
     done
-    input="${input/$expr/$body}"
+    input=${input/$expr/$body}
   done
   echo "$input"
 }
@@ -52,22 +48,35 @@ template() { # render a string with config as context
 
 if command -v dunstify &> /dev/null; then
   notify() { # set up notifications if we can
-    dunstify "hori" "$*"
+    dunstify hori "$*"
   } ; else notify() { : ; } ; fi
 
-once() { # run function 2 in package 1 once if defined
-  PACK="$1"
-  source "$REPO/$PACK/hori.sh"
-  if declare -F "$2" > /dev/null; then
-    "$2" ; unset "$2"
+hook() { # run hook 1 in package 2 once if defined
+  PACK=$2
+  # shellcheck disable=SC1090 #
+  . "$REPO/$PACK/hori.sh"
+  if declare -F "$1" > /dev/null; then
+    notify "$1 $2"
+    $1 ; unset "$1"
   fi
 }
 
-all() { # run $1 $p $2 for every installed package
-  [[ "$1" == "once" ]] && notify "run '$2' for all installed"
-  for p in "$HORI"/*; do
-    "$1" "${p/$HORI\//}" "$2"
-  done
+run() { # run $2 for every package of type $1 found in $@, with package name as the argument
+  if [[ $1 == installed ]]; then
+    local where=$HORI
+  elif [[ $1 == available ]]; then
+    local where=$REPO
+  fi ; shift
+  local cmd=$1 ; shift
+  if [[ $* == "--all" ]]; then
+    for k in "$where"/*; do
+      $cmd "${k/$where\//}"
+    done
+  else
+    for k in "$@"; do
+      [[ -d "$where/$k" ]] && $cmd "${k/$where\//}"
+    done
+  fi
 }
 
 readme() { # generate a readme based on currently used .files
@@ -81,53 +90,42 @@ readme() { # generate a readme based on currently used .files
 # -- package hooks --
 
 render() { # render a file and return its stored path
-  local source="$REPO/$PACK/$1"
-  local target="$HORI/$PACK/$1"
+  local source=$REPO/$PACK/$1
+  local target=$HORI/$PACK/$1
   mkdir -p "$(dirname "$target")"
   template "$(<"$source")" > "$target"
   echo "$target"
 }
 
 link() { # create a symlink
-  if [[ "$1" == *"$HORI"* ]] ; then local source="$1" ; else local source="$REPO/$PACK/$1" ; fi
-  local target="${2/\~/$HOME}"
+  if [[ $1 == *"$HORI"* ]] ; then local source=$1 ; else local source=$REPO/$PACK/$1 ; fi
+  local target=${2/\~/$HOME}
   mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
   ln -sfn "$source" "$target"
 }
 
 unlink() { # remove a symlink
-  local target="${1/\~/$HOME}"
-  [[ -L "$target" ]] && rm "$target"
+  local target=${1/\~/$HOME}
+  [[ -L $target ]] && rm "$target"
 }
 
 launch() { # kill existing process and run command
   pkill -x "$1" ; sleep 0.2 ; "$@"
 }
 
-:grow() { # install package
-  if [[ -d "$REPO/$1" ]]; then
-    once "$1" grow
-    mkdir -p "$HORI/$1"
-    notify "install $1"
-  fi
-}
+# main
 
-:weed() { # uninstall package
-  if [[ -d "$HORI/$1" ]]; then
-    once "$1" weed
-    rm -r "${HORI:?}/$1"
-    notify "remove $1"
-  fi
-}
+setup-wrapper()  { mkdir -p "$HORI/$1" ; hook setup "$1" ; }
+remove-wrapper() { hook remove "$1" ; rm -r "${HORI:?}/$1" ; }
 
-subcmd="$1" ; shift
-case "$subcmd" in
-  s|-s|setup)  for p in "$@"; do :grow "$p"; done ; readme ;;
-  r|-r|remove) for p in "$@"; do :weed "$p"; done ; readme ;;
-  l|-l|list)   all echo ;;
-  h|-h|hook)   all once "$1" ;;
+subcmd=$1 ; shift
+case $subcmd in
+  s|-s|setup)  run available setup-wrapper  "$@" ; readme ;;
+  r|-r|remove) run installed remove-wrapper "$@" ; readme ;;
+  installed)   _hook="$1" ; shift ; run installed "hook $_hook" "$@" ;;
+  available)   _hook="$1" ; shift ; run available "hook $_hook" "$@" ;;
+  l|-l|list)   run installed echo --all ;;
   *) echo "hori-hori - tiny dotfiles management and templating framework"$'\n' \
           "  <setup> or <remove> packages"$'\n' \
-          "  <hook> run hook in all installed packages"$'\n' \
           "  <list> installed packages" ;;
 esac
