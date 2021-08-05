@@ -50,14 +50,14 @@ template() { # render a string with config as context
 
 # -- utils --
 
-command -v dunstify &> /dev/null && \
+if command -v dunstify &> /dev/null; then
   notify() { # set up notifications if we can
     dunstify "hori" "$*"
-  } || notify() { : ; }
+  } ; else notify() { : ; } ; fi
 
 once() { # run function 2 in package 1 once if defined
   PACK="$1"
-  . "$REPO/$PACK/hori.sh"
+  source "$REPO/$PACK/hori.sh"
   if declare -F "$2" > /dev/null; then
     "$2" ; unset "$2"
   fi
@@ -65,14 +65,14 @@ once() { # run function 2 in package 1 once if defined
 
 all() { # run $1 $p $2 for every installed package
   [[ "$1" == "once" ]] && notify "run '$2' for all installed"
-  for p in $HORI/*; do
+  for p in "$HORI"/*; do
     "$1" "${p/$HORI\//}" "$2"
   done
 }
 
 readme() { # generate a readme based on currently used .files
   local txt="### .files currently in use"$'\n'"\`\`\`"$'\n'
-  for p in $HORI/* ; do txt+="${p/$HORI\//}"$'\n' ; done
+  for p in "$HORI"/* ; do txt+="${p/$HORI\//}"$'\n' ; done
   txt+="\`\`\`"$'\n'"See [hori-hori](https://github.com/tsbohc/hori-hori) for more info."$'\n\n'
   txt+="> This readme is generated automatically and is always up to date."
   echo "$txt" > "$REPO/readme.md"
@@ -89,7 +89,7 @@ render() { # render a file and return its stored path
 }
 
 link() { # create a symlink
-  [[ "$1" == *"$HORI"* ]] && local source="$1" || local source="$REPO/$PACK/$1"
+  if [[ "$1" == *"$HORI"* ]] ; then local source="$1" ; else local source="$REPO/$PACK/$1" ; fi
   local target="${2/\~/$HOME}"
   mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
   ln -sfn "$source" "$target"
@@ -115,7 +115,7 @@ launch() { # kill existing process and run command
 :weed() { # uninstall package
   if [[ -d "$HORI/$1" ]]; then
     once "$1" weed
-    rm -r "$HORI/$1"
+    rm -r "${HORI:?}/$1"
     notify "remove $1"
   fi
 }
@@ -125,7 +125,7 @@ case "$subcmd" in
   s|-s|setup)  for p in "$@"; do :grow "$p"; done ; readme ;;
   r|-r|remove) for p in "$@"; do :weed "$p"; done ; readme ;;
   l|-l|list)   all echo ;;
-  h|-h|hook)   all once $1 ;;
+  h|-h|hook)   all once "$1" ;;
   *) echo "hori-hori - tiny dotfiles management and templating framework"$'\n' \
           "  <setup> or <remove> packages"$'\n' \
           "  <hook> run hook in all installed packages"$'\n' \
