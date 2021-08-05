@@ -3,7 +3,7 @@
 # hori-hori - versatile japanese gardening knife, by tsbohc
 # zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
-# shellcheck disable=SC1090 # we're doing a bunch of this here
+# shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are intentional
 
 REPO="$HOME/.garden/etc"  # package repository
 HORI="$HOME/.config/hori" # cache directory
@@ -50,7 +50,7 @@ template() { # render a string with config as context
 
 command -v dunstify &> /dev/null && \
   notify() { # set up notifications if we can
-    dunstify nori "$*"
+    dunstify hori "$*"
   } || notify() { : ; }
 
 hook() { # run hook 1 in package 2 once if defined
