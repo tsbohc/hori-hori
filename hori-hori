@@ -3,6 +3,8 @@
 # hori-hori - versatile japanese gardening knife, by tsbohc
 # zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
+# shellcheck disable=SC1090 # we're doing a bunch of this here
+
 REPO="$HOME/.garden/etc"  # package repository
 HORI="$HOME/.config/hori" # cache directory
 
@@ -46,14 +48,13 @@ template() { # render a string with config as context
 
 # -- utils --
 
-if command -v dunstify &> /dev/null; then
+command -v dunstify &> /dev/null && \
   notify() { # set up notifications if we can
-    dunstify hori "$*"
-  } ; else notify() { : ; } ; fi
+    dunstify nori "$*"
+  } || notify() { : ; }
 
 hook() { # run hook 1 in package 2 once if defined
   PACK=$2
-  # shellcheck disable=SC1090 #
   . "$REPO/$PACK/hori.sh"
   if declare -F "$1" > /dev/null; then
     notify "$1 $2"
@@ -62,11 +63,7 @@ hook() { # run hook 1 in package 2 once if defined
 }
 
 run() { # run $2 for every package of type $1 found in $@, with package name as the argument
-  if [[ $1 == installed ]]; then
-    local where=$HORI
-  elif [[ $1 == available ]]; then
-    local where=$REPO
-  fi ; shift
+  [[ $1 == installed ]] && local where=$HORI || local where=$REPO ; shift
   local cmd=$1 ; shift
   if [[ $* == "--all" ]]; then
     for k in "$where"/*; do
@@ -98,7 +95,7 @@ render() { # render a file and return its stored path
 }
 
 link() { # create a symlink
-  if [[ $1 == *"$HORI"* ]] ; then local source=$1 ; else local source=$REPO/$PACK/$1 ; fi
+  [[ $1 == *"$HORI"* ]] && local source=$! || local source=$REPO/$PACK/$1
   local target=${2/\~/$HOME}
   mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
   ln -sfn "$source" "$target"
