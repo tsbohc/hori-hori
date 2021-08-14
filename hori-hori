@@ -3,12 +3,14 @@
 # hori-hori - versatile japanese gardening knife, by tsbohc
 # zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 
-# shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are intentional
+# shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are in check
+
+# TODO switch available/installed and hook?
 
 REPO="$HOME/.garden/etc"  # package repository
 HORI="$HOME/.config/hori" # cache directory
 
-# --- nyoml to bash ---
+# -- nyoml to bash --
 
 import() { # transpile toml-like config into into bash variables
   local prefix=$2
@@ -49,36 +51,11 @@ template() { # render a string with config as context
 # -- utils --
 
 command -v dunstify &> /dev/null && \
-  notify() { # set up notifications if we can
-    dunstify hori "$*"
-  } || notify() { : ; }
-
-hook() { # run hook 1 in package 2 once if defined
-  PACK=$2
-  . "$REPO/$PACK/hori.sh"
-  if declare -F "$1" > /dev/null; then
-    notify "$1 $2"
-    $1 ; unset "$1"
-  fi
-}
-
-run() { # run $2 for every package of type $1 found in $@, with package name as the argument
-  [[ $1 == installed ]] && local where=$HORI || local where=$REPO ; shift
-  local cmd=$1 ; shift
-  if [[ $* == "--all" ]]; then
-    for k in "$where"/*; do
-      $cmd "${k/$where\//}"
-    done
-  else
-    for k in "$@"; do
-      [[ -d "$where/$k" ]] && $cmd "${k/$where\//}"
-    done
-  fi
-}
+  notify() { dunstify hori "$*" ; } || notify() { : ; }
 
 readme() { # generate a readme based on currently used .files
   local txt="### .files currently in use"$'\n'"\`\`\`"$'\n'
-  for p in "$HORI"/* ; do txt+="${p/$HORI\//}"$'\n' ; done
+  for p in "$HORI/"* ; do txt+="${p/$HORI\//}"$'\n' ; done
   txt+="\`\`\`"$'\n'"See [hori-hori](https://github.com/tsbohc/hori-hori) for more info."$'\n\n'
   txt+="> This readme is generated automatically and is always up to date."
   echo "$txt" > "$REPO/readme.md"
@@ -95,7 +72,7 @@ render() { # render a file and return its stored path
 }
 
 link() { # create a symlink
-  [[ $1 == *"$HORI"* ]] && local source=$! || local source=$REPO/$PACK/$1
+  [[ $1 == *"$HORI"* ]] && local source=$1 || local source=$REPO/$PACK/$1
   local target=${2/\~/$HOME}
   mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
   ln -sfn "$source" "$target"
@@ -110,7 +87,33 @@ launch() { # kill existing process and run command
   pkill -x "$1" ; sleep 0.2 ; "$@"
 }
 
-# main
+# -- triggering hooks --
+
+hook() { # run hook 1 in package 2 once if defined
+  PACK=$2
+  (
+  . "$REPO/$PACK/hori.sh"
+  if declare -F "$1" > /dev/null; then
+    notify "$1 $PACK" ; $1
+  fi
+  )
+}
+
+run() { # run $2 for every package of type $1 found in $@, with package name as the argument
+  [[ $1 == installed ]] && local where=$HORI || local where=$REPO ; shift
+  local cmd=$1 ; shift
+  if [[ $* == "--all" ]]; then
+    for k in "$where/"*; do
+      $cmd "${k/$where\//}"
+    done
+  else
+    for k in "$@"; do
+      [[ -d "$where/$k" ]] && $cmd "${k/$where\//}"
+    done
+  fi
+}
+
+# -- main --
 
 setup-wrapper()  { mkdir -p "$HORI/$1" ; hook setup "$1" ; }
 remove-wrapper() { hook remove "$1" ; rm -r "${HORI:?}/$1" ; }
