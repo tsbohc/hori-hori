@@ -5,8 +5,6 @@
 
 # shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are in check
 
-# TODO switch available/installed and hook?
-
 REPO="$HOME/.garden/etc"  # package repository
 HORI="$HOME/.config/hori" # cache directory
 
@@ -61,6 +59,12 @@ readme() { # generate a readme based on currently used .files
   echo "$txt" > "$REPO/readme.md"
 }
 
+rawreadme() {
+  local txt=""
+  for p in "$HORI/"* ; do txt+="${p/$HORI\//}"$'\n' ; done
+  echo "$txt" > "$REPO/rawreadme"
+}
+
 # -- package hooks --
 
 render() { # render a file and return its stored path
@@ -91,41 +95,75 @@ launch() { # kill existing process and run command
 
 hook() { # run hook 1 in package 2 once if defined
   PACK=$2
+  [[ $1 == "setup" ]] && mkdir -p "$HORI/$PACK"
   (
   . "$REPO/$PACK/hori.sh"
   if declare -F "$1" > /dev/null; then
     notify "$1 $PACK" ; $1
   fi
   )
+  [[ $1 == "remove" && -d "${HORI:?}/$PACK" ]] && rm -r "${HORI:?}/$PACK"
 }
 
-run() { # run $2 for every package of type $1 found in $@, with package name as the argument
-  [[ $1 == installed ]] && local where=$HORI || local where=$REPO ; shift
+run() { # run $1 for every package of type $2 or in $@
   local cmd=$1 ; shift
-  if [[ $* == "--all" ]]; then
-    for k in "$where/"*; do
-      $cmd "${k/$where\//}"
-    done
-  else
-    for k in "$@"; do
-      [[ -d "$where/$k" ]] && $cmd "${k/$where\//}"
-    done
-  fi
+  case $* in
+    -i|--installed) packages=("$HORI/"*) ;;
+    -a|--available) packages=("$REPO/"*) ;;
+    *) packages=("$@") ;;
+  esac
+  for p in "${packages[@]}"; do
+    $cmd "${p##*/}"
+    #echo "run command [$cmd] for package [${p##*/}]"
+  done
 }
 
 # -- main --
 
-setup-wrapper()  { mkdir -p "$HORI/$1" ; hook setup "$1" ; }
-remove-wrapper() { hook remove "$1" ; rm -r "${HORI:?}/$1" ; }
+# TODO verbose -v flag
 
 subcmd=$1 ; shift
 case $subcmd in
-  s|-s|setup)  run available setup-wrapper  "$@" ; readme ;;
-  r|-r|remove) run installed remove-wrapper "$@" ; readme ;;
-  installed)   _hook="$1" ; shift ; run installed "hook $_hook" "$@" ;;
-  available)   _hook="$1" ; shift ; run available "hook $_hook" "$@" ;;
-  l|-l|list)   run installed echo --all ;;
-  *) echo "hori-hori - tiny dotfiles management and templating framework"$'\n' \
-          "  <setup> or <remove> packages"$'\n' \
-          "  <list> installed packages" ;;
+  -s|setup)  run "hook setup" "$@" ; readme ; rawreadme ;;
+  -r|remove) run "hook remove" "$@" ; readme ; rawreadme ;;
+  -k|hook)   _hook="hook $1" ; shift ; run "$_hook" "$@" ;;
+  -e|exec)   run "$@" ;;
+  *) echo "tiny dotfiles management and templating framework
+
+USAGE
+  \$ hori-hori <operation> <arguments>
+
+  install or remove packages
+    {-s, setup}    <package(s)>
+    {-r, remove}   <package(s)>
+
+  run hook in packages or command with package name as argument
+    {-e, exec}     <command> (<package(s)> | -i | -a)
+    {-k, hook}     <hook> (<package(s)> | -i | -a)
+
+OPTIONS
+  -h, --help       display this message
+  -i, --installed  replaced with installed packages
+  -a, --available  replaced with available packages" ;;
 esac
+
+  #hook operation is a shorthand for
+  #  \$ hori-hori -e \"hook <hook>\" <package(s)>
+  #setup operation is a shorthand for
+  #  \$ hori-hori -e \"hook setup\" <package(s)>
+
+# TODO put this into description
+#EXAMPLES
+#  list installed or available packages
+#    \$ hori-hori -e echo (-i | -a)
+#
+#  autostart
+#    create a hook, e.g polybar/hori.sh:
+#
+#      autostart() {
+#        launch polybar main &
+#      }
+#
+#    execute it in every installed package, e.g in the wm autostart script:
+#
+#      hori-hori -h autostart -i
