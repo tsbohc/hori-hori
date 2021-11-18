@@ -1,14 +1,15 @@
 #!/bin/bash
 
 # hori-hori - versatile japanese gardening knife, by tsbohc
-# zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
+# TODO verbose -v flag?
 
+# zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 # shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are in check
 
 REPO="$HOME/.garden/etc"  # package repository
 HORI="$HOME/.config/hori" # cache directory
 
-# -- nyoml to bash --
+# -- nyoml --
 
 import() { # transpile toml-like config into into bash variables
   local prefix=$2
@@ -51,19 +52,8 @@ template() { # render a string with config as context
 command -v dunstify &> /dev/null && \
   notify() { dunstify hori "$*" ; } || notify() { : ; }
 
-readme() { # generate a readme based on currently used .files
-  local txt="### .files currently in use"$'\n'"\`\`\`"$'\n'
-  for p in "$HORI/"* ; do txt+="${p/$HORI\//}"$'\n' ; done
-  txt+="\`\`\`"$'\n'"See [hori-hori](https://github.com/tsbohc/hori-hori) for more info."$'\n\n'
-  txt+="> This readme is generated automatically and is always up to date."
-  echo "$txt" > "$REPO/readme.md"
-}
-
-rawreadme() {
-  local txt=""
-  for p in "$HORI/"* ; do txt+="${p/$HORI\//}"$'\n' ; done
-  echo "$txt" > "$REPO/rawreadme"
-}
+command -v hori-readme &> /dev/null && \
+  readme() { hori-readme ; } || readme() { : ; }
 
 # -- package hooks --
 
@@ -114,18 +104,15 @@ run() { # run $1 for every package of type $2 or in $@
   esac
   for p in "${packages[@]}"; do
     $cmd "${p##*/}"
-    #echo "run command [$cmd] for package [${p##*/}]"
   done
 }
 
 # -- main --
 
-# TODO verbose -v flag
-
 subcmd=$1 ; shift
 case $subcmd in
-  -s|setup)  run "hook setup" "$@" ; readme ; rawreadme ;;
-  -r|remove) run "hook remove" "$@" ; readme ; rawreadme ;;
+  -s|setup)  run "hook setup" "$@" ; readme ;;
+  -r|remove) run "hook remove" "$@" ; readme ;;
   -k|hook)   _hook="hook $1" ; shift ; run "$_hook" "$@" ;;
   -e|exec)   run "$@" ;;
   *) echo "tiny dotfiles management and templating framework
