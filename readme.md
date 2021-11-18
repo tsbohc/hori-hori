@@ -1,12 +1,51 @@
 # hori-hori
 
-A tiny dotfiles templating and management framework written in bash in `150 loc`
+A personal dotfiles templating and package-esque management framework written in around a hundred lines of bash.
 
-It consists of three main parts:
-- Configuration parser
-- Templating engine
-- Package manager
+```
+USAGE
+  $ hori-hori <operation> <arguments>
 
+  install or remove packages
+    {-s, setup}    <package(s)>
+    {-r, remove}   <package(s)>
+
+  run hook in packages or command with package name as argument
+    {-e, exec}     <command> (<package(s)> | -i | -a)
+    {-k, hook}     <hook> (<package(s)> | -i | -a)
+
+OPTIONS
+  -h, --help       display this message
+  -i, --installed  replaced with installed packages
+  -a, --available  replaced with available packages
+```
+
+<!--
+## examples
+
+#### Repo
+
+List installed or available packages:
+
+```
+hori-hori -e echo (-i | -a)
+```
+
+#### Autostart
+
+1. create a hook, e.g in `polybar/hori.sh`:
+
+```bash
+autostart() {
+  launch polybar main &
+}
+```
+
+2. execute it in every installed package, e.g in `herbstluftwm/autostart`:
+
+```bash
+hori-hori hook autostart --installed
+```
 ### nyoml
 A minimal configuration language inspired by toml. Can load external files into the current position on the tree. Supports key value pairs and whole line comments. Compiles to bash variables.
 
@@ -96,3 +135,4 @@ Honestly, I like bash. I think it has such a strong character, and it's limitati
 This project was a personal challenge of mine. It's more of a show-and-tell than a practical tool.
 
 I advise you not to use it.
+-->
