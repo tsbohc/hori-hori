@@ -59,21 +59,6 @@ is-installed dunstify && \
 is-installed hori-readme && \
   readme() { hori-readme ; } || readme() { : ; }
 
-depend() { # get a list of dependencies required by all packages
-  echo -n "" > /tmp/hori-hori-missing
-  for d in "$HORI/"*; do
-    (
-    . "$REPO/${d##*/}/hori.sh"
-    if [[ -n "$depend" ]]; then
-      for p in "${depend[@]}"; do
-        echo "$p" >> /tmp/hori-hori-missing
-      done
-    fi
-    )
-  done
-  cat /tmp/hori-hori-missing
-}
-
 # -- package hooks --
 
 render() { # render a file and return its stored path
@@ -108,13 +93,36 @@ install() {
 
 # -- triggering hooks --
 
+#subrun() { # run $2 after sourcing $1 in a subshell
+#  echo -n "" > /tmp/hori-hori-missing
+#  (
+#  . "$REPO/$1/hori.sh"
+#  shift
+#  "$@" > /tmp/hori-hori-missing
+#  )
+#  cat /tmp/hori-hori-missing
+#}
+#
+#depend() (
+#  IFS=$'\n' # nb: we're in a subshell
+#  A() { [[ -n "$depend" ]] && echo "${depend[*]}" ; }
+#  for d in "$HORI/"*; do
+#    subrun "${d##*/}" A
+#  done
+#)
+
+install() {
+  local IFS=$'\n'
+  echo "$*"
+}
+
 hook() { # run hook 1 in package 2 once if defined
   PACK=$2
   [[ $1 == "setup" ]] && mkdir -p "$HORI/$PACK"
   (
   . "$REPO/$PACK/hori.sh"
   if declare -F "$1" > /dev/null; then
-    notify "$1 $PACK" ; $1
+    $1
   fi
   )
   [[ $1 == "remove" && -d "${HORI:?}/$PACK" ]] && rm -r "${HORI:?}/$PACK"
@@ -126,9 +134,10 @@ run() { # run $1 for every package of type $2 or in $@
     -i|--installed) packages=("$HORI/"*) ;;
     -a|--available) packages=("$REPO/"*) ;;
     *) packages=("$@") ;;
-  esac
+  esac ; packages=( "${packages[@]##*/}" )
+  notify "$cmd ${packages[*]}"
   for p in "${packages[@]}"; do
-    $cmd "${p##*/}"
+    $cmd "$p"
   done
 }
 
