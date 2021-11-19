@@ -106,19 +106,17 @@ install() { # not really install, just list the needed packages one per line
   local IFS=$'\n' ; echo "$*"
 }
 
-# -- triggering hooks --
+# -- triggering hooks and commands --
 
-hook() { # run hook $1 (prefer _$1) in package $2 if defined
-  PACK=$2
-  (
-  . "$REPO/$PACK/hori.sh"
+hook() ( # subshell run hook $1 (prefer _$1) in package $2 if defined
   local hook=$1
+  PACK=$2 # global for the subshell
+  . "$REPO/$PACK/hori.sh"
   if declare -F "$hook" > /dev/null; then
     declare -F "_$hook" > /dev/null && hook="_$hook"
     "$hook"
   fi
-  )
-}
+)
 
 run() { # run $1 for every package of type $2 or in $@
   local cmd=$1 ; shift
@@ -134,8 +132,6 @@ run() { # run $1 for every package of type $2 or in $@
 }
 
 # -- main --
-
-# TODO maybe even a -w wallpaper action for setting wallpaphers in a wallpaper/whiteflower.png through feh fashion?
 
 subcmd=$1 ; shift
 case $subcmd in
