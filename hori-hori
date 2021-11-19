@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
 # hori-hori - versatile japanese gardening knife, by tsbohc
-# TODO verbose -v flag?
-
-# zsh completion how-to: compdef '_path_files -/ -W /home/sean/.garden/etc/' hori-hori
 # shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are in check
 
 REPO="$HOME/.garden/etc"  # package repository
@@ -102,7 +99,7 @@ launch() { # kill existing process and run command
   pkill -x "$1" ; sleep 0.2 ; "$@"
 }
 
-install() { # not really install, just list the needed packages one per line
+install() { # just list the needed packages one per line
   local IFS=$'\n' ; echo "$*"
 }
 
@@ -125,7 +122,6 @@ run() { # run $1 for every package of type $2 or in $@
     -a|--available) packages=("$REPO/"*) ;;
     *) packages=("$@") ;;
   esac
-  #packages=( "${packages[@]##*/}" )
   for p in "${packages[@]}"; do
     $cmd "${p##*/}"
   done
@@ -156,5 +152,8 @@ OPTIONS
 
 EXAMPLES
   \$ hori-hori -e echo -i                list installed packages
-  \$ hori-hori ... | yay -S --needed -   install required dependencies" ;;
+  \$ hori-hori ... | yay -S --needed -   install required dependencies
+
+COMPLETION
+  zsh: compdef \"_path_files -/ -W $HOME/.garden/etc/\"" ;;
 esac
