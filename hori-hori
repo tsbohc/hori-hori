@@ -51,15 +51,32 @@ template() { # render a string with config as context
 
 # -- utils --
 
-is-installed () { command -v "$1" &> /dev/null ; }
-
-is-installed dunstify && \
+command -v dunstify &> /dev/null && \
   notify() { dunstify hori "$*" ; } || notify() { : ; }
 
-is-installed hori-readme && \
+command -v hori-readme &> /dev/null  && \
   readme() { hori-readme ; } || readme() { : ; }
 
 # -- package hooks --
+
+_setup() {
+  notify "setup $PACK"
+  mkdir -p "$HORI/$PACK"
+  setup
+}
+
+_remove() {
+  notify "remove $PACK"
+  remove
+  [[ -d "${HORI:?}/$PACK" ]] && rm -r "${HORI:?}/$PACK"
+}
+
+_autostart() {
+  notify "autostart $PACK"
+  autostart
+}
+
+# -- hook actions --
 
 render() { # render a file and return its stored path
   local source=$REPO/$PACK/$1
@@ -85,47 +102,22 @@ launch() { # kill existing process and run command
   pkill -x "$1" ; sleep 0.2 ; "$@"
 }
 
-install() {
-  for p in "$@"; do
-    ! is-installed "$p" && echo "$p" >> /tmp/hori-hori-missing
-  done
+install() { # not really install, just list the needed packages one per line
+  local IFS=$'\n' ; echo "$*"
 }
 
 # -- triggering hooks --
 
-#subrun() { # run $2 after sourcing $1 in a subshell
-#  echo -n "" > /tmp/hori-hori-missing
-#  (
-#  . "$REPO/$1/hori.sh"
-#  shift
-#  "$@" > /tmp/hori-hori-missing
-#  )
-#  cat /tmp/hori-hori-missing
-#}
-#
-#depend() (
-#  IFS=$'\n' # nb: we're in a subshell
-#  A() { [[ -n "$depend" ]] && echo "${depend[*]}" ; }
-#  for d in "$HORI/"*; do
-#    subrun "${d##*/}" A
-#  done
-#)
-
-install() {
-  local IFS=$'\n'
-  echo "$*"
-}
-
-hook() { # run hook 1 in package 2 once if defined
+hook() { # run hook $1 (prefer _$1) in package $2 if defined
   PACK=$2
-  [[ $1 == "setup" ]] && mkdir -p "$HORI/$PACK"
   (
   . "$REPO/$PACK/hori.sh"
-  if declare -F "$1" > /dev/null; then
-    $1
+  local hook=$1
+  if declare -F "$hook" > /dev/null; then
+    declare -F "_$hook" > /dev/null && hook="_$hook"
+    "$hook"
   fi
   )
-  [[ $1 == "remove" && -d "${HORI:?}/$PACK" ]] && rm -r "${HORI:?}/$PACK"
 }
 
 run() { # run $1 for every package of type $2 or in $@
@@ -134,10 +126,10 @@ run() { # run $1 for every package of type $2 or in $@
     -i|--installed) packages=("$HORI/"*) ;;
     -a|--available) packages=("$REPO/"*) ;;
     *) packages=("$@") ;;
-  esac ; packages=( "${packages[@]##*/}" )
-  notify "$cmd ${packages[*]}"
+  esac
+  #packages=( "${packages[@]##*/}" )
   for p in "${packages[@]}"; do
-    $cmd "$p"
+    $cmd "${p##*/}"
   done
 }
 
@@ -149,7 +141,6 @@ subcmd=$1 ; shift
 case $subcmd in
   -s|setup)  run "hook setup" "$@" ; readme ;;
   -r|remove) run "hook remove" "$@" ; readme ;;
-  -d|--depend) depend ;;
   -k|hook)   _hook="hook $1" ; shift ; run "$_hook" "$@" ;;
   -e|exec)   run "$@" ;;
   *) echo "tiny dotfiles management and templating framework
@@ -164,11 +155,10 @@ USAGE
 
 OPTIONS
   -h, --help       display this message
-  -d, --depend     list package dependencies
   -i, --installed  replaced with installed packages
   -a, --available  replaced with available packages
 
 EXAMPLES
-  \$ hori-hori -e echo -i               list installed packages
-  \$ hori-hori -d | yay -S --needed -   install required dependencies" ;;
+  \$ hori-hori -e echo -i                list installed packages
+  \$ hori-hori ... | yay -S --needed -   install required dependencies" ;;
 esac
