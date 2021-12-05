@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 
 # hori-hori - versatile japanese gardening knife, by tsbohc
-# shellcheck disable=SC1090,SC2015 # non-constant paths and ternary-like ifs are in check
 
-REPO="$HOME/.garden/etc"  # package repository
-HORI="$HOME/.config/hori" # cache directory
+# non-constant paths & ternary-like ifs are in check
+# shellcheck disable=SC1090,SC2015
+
+#REPO="$HOME/.garden/etc"  # package repository
+
+# TODO
+# rename to hori
+# change setup -> add, remove -> del
+# ask()
 
 # -- nyoml --
 
@@ -26,7 +32,7 @@ import() { # transpile toml-like config into into bash variables
       eval "${BASH_REMATCH[1]} ${section}"
     fi
   done < "$REPO/hori-hori/$1"
-} ; eval "$(import conf)"
+}
 
 # -- templating engine --
 
@@ -51,6 +57,7 @@ template() { # render a string with config as context
 command -v dunstify &> /dev/null && \
   notify() { dunstify hori "$*" ; } || notify() { : ; }
 
+# TODO rip this out
 command -v hori-readme &> /dev/null  && \
   readme() { hori-readme ; } || readme() { : ; }
 
@@ -79,6 +86,7 @@ render() { # render a file and return its stored path
   local source=$REPO/$PACK/$1
   local target=$HORI/$PACK/$1
   mkdir -p "$(dirname "$target")"
+  #say 2 "render ${source##*/}"
   template "$(<"$source")" > "$target"
   echo "$target"
 }
@@ -86,13 +94,15 @@ render() { # render a file and return its stored path
 link() { # create a symlink
   [[ $1 == *"$HORI"* ]] && local source=$1 || local source=$REPO/$PACK/$1
   local target=${2/\~/$HOME}
-  mkdir -p "$(dirname "$target")" # TODO replace with string manipulation
-  ln -sfn "$source" "$target"
+  mkdir -p $verbose "$(dirname "$target")" # TODO replace with string manipulation
+  #say 2 "link ${source##*/} to ${target/$HOME/\~}"
+  ln -sfn $verbose "$source" "$target"
 }
 
 unlink() { # remove a symlink
   local target=${1/\~/$HOME}
-  [[ -L $target ]] && rm "$target"
+  #say 2 "remove ${target/$HOME/\~}"
+  [[ -L $target ]] && rm $verbose "$target"
 }
 
 launch() { # kill existing process and run command
@@ -110,6 +120,7 @@ hook() ( # subshell run hook $1 (prefer _$1) in package $2 if defined
   PACK=$2 # global for the subshell
   . "$REPO/$PACK/hori.sh"
   if declare -F "$hook" > /dev/null; then
+    #say 1 "$PACK -k $hook"
     declare -F "_$hook" > /dev/null && hook="_$hook"
     "$hook"
   fi
@@ -123,14 +134,36 @@ run() { # run $1 for every package of type $2 or in $@
     *) packages=("$@") ;;
   esac
   for p in "${packages[@]}"; do
+    #say "$p -e $cmd $p"
     $cmd "${p##*/}"
   done
 }
 
 # -- main --
 
-subcmd=$1 ; shift
-case $subcmd in
+verbose="--verbose"
+
+#say() {
+#  pad=$1 ; shift
+#  for ((i=0; i<pad*2; ++i)); do echo -n " "; done
+#  echo -e "$*"
+#} >&2
+
+REPO="$(find ~ -type f -name "repository.hori" -print -quit)"
+REPO=${REPO%/*}
+
+if [[ -n $REPO ]]; then
+  echo "repo ${REPO/$HOME/\~}"
+else
+  echo "could not find repo, aborting..." ; exit
+fi
+
+HORI="$HOME/.config/hori"
+
+eval "$(import conf)"
+
+operation=$1 ; shift
+case $operation in
   -s|setup)  run "hook setup" "$@" ; readme ;;
   -r|remove) run "hook remove" "$@" ; readme ;;
   -k|hook)   _hook="hook $1" ; shift ; run "$_hook" "$@" ;;
