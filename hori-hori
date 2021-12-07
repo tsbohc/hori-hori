@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-
-# hori-hori - versatile japanese gardening knife, by tsbohc
-
-# non-constant paths & ternary-like ifs are in check
 # shellcheck disable=SC1090,SC2015
 
-#REPO="$HOME/.garden/etc"  # package repository
+#: tiny dotfiles management and templating framework
 
 # TODO
-# rename to hori
-# change setup -> add, remove -> del
-# ask()
+# replace dirname with string manipulation
 
-# -- nyoml --
+yell() { echo "$@" 1>&2 ; }
+
+command -v dunstify &> /dev/null && \
+  notify() { dunstify hori "$*" ; } || notify() { : ; }
+
+# -- templating engine
 
 import() { # transpile toml-like config into into bash variables
   local prefix=$2
@@ -34,8 +33,6 @@ import() { # transpile toml-like config into into bash variables
   done < "$REPO/hori-hori/$1"
 }
 
-# -- templating engine --
-
 template() { # render a string with config as context
   local input=$1
   local expr_re='\{%[[:space:]]([^ ]+)[[:space:]]%\}'
@@ -52,141 +49,90 @@ template() { # render a string with config as context
   echo "$input"
 }
 
-# -- utils --
+# -- actions
 
-command -v dunstify &> /dev/null && \
-  notify() { dunstify hori "$*" ; } || notify() { : ; }
-
-# TODO rip this out
-command -v hori-readme &> /dev/null  && \
-  readme() { hori-readme ; } || readme() { : ; }
-
-# -- package hooks --
-
-_setup() {
-  notify "setup $PACK"
-  mkdir -p "$HORI/$PACK"
-  setup
-}
-
-_remove() {
-  notify "remove $PACK"
-  remove
-  [[ -d "${HORI:?}/$PACK" ]] && rm -r "${HORI:?}/$PACK"
-}
-
-_autostart() {
-  notify "autostart $PACK"
-  autostart
-}
-
-# -- hook actions --
-
-render() { # render a file and return its stored path
+render() { # render <1:file> and return its path
   local source=$REPO/$PACK/$1
   local target=$HORI/$PACK/$1
   mkdir -p "$(dirname "$target")"
-  #say 2 "render ${source##*/}"
   template "$(<"$source")" > "$target"
   echo "$target"
 }
 
-link() { # create a symlink
-  [[ $1 == *"$HORI"* ]] && local source=$1 || local source=$REPO/$PACK/$1
+link() { # create symlink from <1:source> to <2:target>
+  local source ; [[ $1 == *"$HORI"* ]] && source=$1 || source=$REPO/$PACK/$1
   local target=${2/\~/$HOME}
-  mkdir -p $verbose "$(dirname "$target")" # TODO replace with string manipulation
-  #say 2 "link ${source##*/} to ${target/$HOME/\~}"
-  ln -sfn $verbose "$source" "$target"
+  mkdir -p "$(dirname "$target")"
+  ln -sfn "$source" "$target"
 }
 
-unlink() { # remove a symlink
+unlink() { # remove <1:symlink>
   local target=${1/\~/$HOME}
-  #say 2 "remove ${target/$HOME/\~}"
-  [[ -L $target ]] && rm $verbose "$target"
+  [[ -L $target ]] && rm "$target"
 }
 
-launch() { # kill existing process and run command
+launch() { # kill existing <1:process> and run <@:command>
   pkill -x "$1" ; sleep 0.2 ; "$@"
 }
 
-install() { # just list the needed packages one per line
+install() { # list the required <*:dependencies>
   local IFS=$'\n' ; echo "$*"
 }
 
-# -- triggering hooks and commands --
-
-hook() ( # subshell run hook $1 (prefer _$1) in package $2 if defined
-  local hook=$1
-  PACK=$2 # global for the subshell
-  . "$REPO/$PACK/hori.sh"
-  if declare -F "$hook" > /dev/null; then
-    #say 1 "$PACK -k $hook"
-    declare -F "_$hook" > /dev/null && hook="_$hook"
-    "$hook"
-  fi
-)
-
-run() { # run $1 for every package of type $2 or in $@
-  local cmd=$1 ; shift
+list() {
   case $* in
     -i|--installed) packages=("$HORI/"*) ;;
     -a|--available) packages=("$REPO/"*) ;;
     *) packages=("$@") ;;
   esac
   for p in "${packages[@]}"; do
-    #say "$p -e $cmd $p"
-    $cmd "${p##*/}"
+    p="${p##*/}"
+    if [[ -f "$REPO/$p/hori.sh" ]]; then
+      echo "$p"
+    fi
   done
 }
 
-# -- main --
+hook() { # execute <1:hook> in <@:packages>
+  local h=$1 ; shift
+  while read -r p; do
+    PACK=$p ; (
+      . "$REPO/$p/hori.sh"
+      if declare -F "$h" > /dev/null; then
+        case $h in
+          autostart) notify "autostart $PACK" ;;
+          add) mkdir -p "$HORI/$p" ;;
+        esac
+        echo "<$h> in <$p>"
+        "$h"
+        case $h in
+          del) [[ -d "${HORI:?}/$p" ]] && rm -r "${HORI:?}/$p" ;;
+        esac
+      else
+        yell "<$h> is not in <$p>"
+      fi
+    ) ; unset PACK
+  done < <(list "$@")
+}
 
-verbose="--verbose"
-
-#say() {
-#  pad=$1 ; shift
-#  for ((i=0; i<pad*2; ++i)); do echo -n " "; done
-#  echo -e "$*"
-#} >&2
-
-REPO="$(find ~ -type f -name "repository.hori" -print -quit)"
-REPO=${REPO%/*}
-
-if [[ -n $REPO ]]; then
-  echo "repo ${REPO/$HOME/\~}"
-else
-  echo "could not find repo, aborting..." ; exit
-fi
+# -- main
 
 HORI="$HOME/.config/hori"
+REPO=$(cat "$HORI/.repo" 2>/dev/null)
 
-eval "$(import conf)"
+if [[ ! -f "$REPO/repository.hori" ]]; then
+  REPO="$(find ~ -type f -name "repository.hori" -print -quit 2>/dev/null)"
+  REPO=${REPO%/*}
+  yell "hori:main found repo at <$REPO>"
+  echo "$REPO" > "$HORI/.repo"
+fi
 
-operation=$1 ; shift
-case $operation in
-  -s|setup)  run "hook setup" "$@" ; readme ;;
-  -r|remove) run "hook remove" "$@" ; readme ;;
-  -k|hook)   _hook="hook $1" ; shift ; run "$_hook" "$@" ;;
-  -e|exec)   run "$@" ;;
-  *) echo "tiny dotfiles management and templating framework
+[[ -f "$REPO/repository.hori" ]] || { yell "could not find repo, aborting..." ; exit ; }
+eval "$(import conf)" || { yell "conf evaluation failed, aborting..." ; exit ; }
 
-USAGE
-  \$ hori-hori <operation> [arguments]
-
-  {-s, setup}    <package(s)>
-  {-r, remove}   <package(s)>
-  {-e, exec}     <command> (<package(s)> | -i | -a)
-  {-k, hook}     <hook> (<package(s)> | -i | -a)
-
-OPTIONS
-  -h, --help       display this message
-  -i, --installed  replaced with installed packages
-  -a, --available  replaced with available packages
-
-EXAMPLES
-  \$ hori-hori -e echo -i                list installed packages
-  \$ hori-hori ... | yay -S --needed -   install required dependencies
-
-COMPLETION
-  zsh: compdef \"_path_files -/ -W $HOME/.garden/etc/\"" ;;
+cmd=$1 ; shift
+case $cmd in
+  -h|--help|"") echo "\$ hori <hook> (<package(s)>|-i|-a)" ;;
+  ls) list "$@" ;;
+  *) hook "$cmd" "$@" ;;
 esac
