@@ -7,5 +7,5 @@ A personal dotfiles templating and management framework written in a hundred lin
 - Package-like management
 
 ```
-\$ hori <hook> (<package(s)>|-i|-a)
+$ hori <hook> (<package(s)>|-i|-a)
 ```
