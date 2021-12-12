@@ -7,25 +7,38 @@
 # instead of cat $file, do something like this?
 # read -d $'\x04' name < "$file" 
 
+# TODO change extract and replace to sed/awk, benchmark
+
 replace() { # $2 with $3 in string $1
-  h=${1%%"$2"*} ; t=${1#*"$2"} ; echo "$h$3$t"
+  echo "${1%%"$2"*}${3}${1#*"$2"}"
 }
 
 extract() { # shortest substring from string $1 between $2 and $3
-  local s=${1%%"$3"*} ; s=${s##*"$2"} ; echo "$s"
+  local s=${1%%"$3"*} ; echo "${s##*"$2"}"
+}
+
+import() {
+  local varset=$1 prefix=$2 # TODO check if this actually works as expected in dash
+  [ "$varset" = "config" ] || prefix=${prefix}_$1
+  while read -r line ; do
+    if [ "${line#"import "}" != "$line" ]; then
+      import "${line#"import "}" "$prefix"
+    elif [ "${line#[[:alnum:]]*"="}" != "$line" ]; then # nb: only alnum in assignments
+      eval "_${prefix}_${line}"
+    fi
+  # TODO change to $REPO/hori/* ... instead of pwd
+  done < "$varset"
 }
 
 template() { # render a string with current context
-  local input expr old_expr key ; input=$1
+  local input expr old_expr key val; input=$1
   while [ "${input#*"{% "[!" "]*" %}"*}" != "$input" ] ; do
-    #echo "$input"
     expr="$(extract "$input" "{% " " %}")"
     old_expr=$expr
       while [ "${expr#*"{"[!\{\}]*"}"*}" != "$expr" ]; do
-        #echo "  $expr"
         key="$(extract "$expr" "{" "}")"
         val="$(eval "echo \$__$key")"
-        [ -z "$val" ] && { echo "missing key: $key, aborting" ; exit 1 ; }
+        [ -z "$val" ] && { echo "missing key: '$key', aborting" ; exit 1 ; }
         expr="$(replace "$expr" "{$key}" "$val")"
       done
     input="$(replace "$input" "{% $old_expr %}" "$expr")"
@@ -35,100 +48,14 @@ template() { # render a string with current context
 
 s="aorst {% {{colo}_color0} %} aiorst {% {{colo}_color15} %}"
 
-# TODO problem: make varsets sourceable shell scripts
-# nb: associative arrays are not a thing
-
-# WAAAAAAAAAAAAAAAAAAAAAAAAAAAIT
-# why use variable when i can have a function
-# and make the varsets actual shell scripts
-# e.g a shell script that gathers data, parses it, and then calls a function
-# to expose vars? wow am i stooopid
-
-#     conf
-# colo="limestone"
-# val colo $colo # => __colo="limestone"
-# imp $colo # => __limestone_color0="black"      # that is, import variables from varset1 as __varset1_var1 (no prepoc, just use its actual name)
-
-#     limestone
-# val color0 black
-# val color15 white
-
-#     result
-# __limestone_color0="black"
-
-import() {
-  [ "$1" != "config" ] && varset=$1
-  #[ "$2" != "config" ] && varset=$2_${varset}
-  varset=$2_${varset}
-  val() { eval "${varset}_$1='$2'" ; }
-  while read -r line ; do
-    if [ "${line#import}" != "$line" ]; then
-      #echo "  # $line $varset"
-      eval "$line $varset"
-    else
-      #echo "  # $line $varset"
-      eval "$line"
-    fi
-  done < "$1"
-}
-
 import config
-
 template "$s"
 
 
 
-#s="aorst {% {{colo}_color0} %} aiorst {% {{colo}_color15} %}"
-#
-#__colo="limestone"
-#__limestone_color0="#000000"
-#__limestone_color15="#ffffff"
-#
-#zzz=0.5
-#
-##while ! (case $s in (*"{% "[!" "]*" %}"*) return 1 ;; esac) ; do
-#while [ "${s#*"{% "[!" "]*" %}"*}" != "$s" ] ; do
-#  echo "s: $s"
-#  sleep $zzz
-#  expr="$(extract "$s" "{% " " %}")"
-#  echo ">> $expr"
-#  old_expr=$expr
-#
-#    #while ! (case $expr in (*"{"[!\{\}]*"}"*) return 1 ;; esac); do
-#    while [ "${expr#*"{"[!\{\}]*"}"*}" != "$expr" ]; do
-#      key="$(extract "$expr" "{" "}")"
-#      sleep $zzz
-#      echo "  >> $key"
-#      expr="$(replace "$expr" "{$key}" "$(eval "echo \$__$key")")"
-#      sleep $zzz
-#      echo "  e: $expr"
-#    done
-#
-#  sleep $zzz
-#  s="$(replace "$s" "{% $old_expr %}" "$expr")"
-#done
-#
-#echo
-#echo "s: $s"
 
 
-
-
-#import() {
-#  local varset=$1 ; shift
-#  while read -r line ; do
-#    >&2 echo "$varset: '$line' '$*'"
-#    if [ "${line#import}" != "$line" ]; then
-#      eval "$(replace "$line" "\$" "\$__")"
-#    else
-#      eval "$({
-#        echo -n "__"
-#        for prefix in "$@" ; do echo -n "${prefix}_" ; done
-#        echo "$line"
-#      })"
-#    fi
-#  done < "$varset"
+#compare() {
+#  [ "${1#$2}" != "$1" ]
 #}
-#
-## "import limestone variables as ${colo}_variable"
-#import config
+
