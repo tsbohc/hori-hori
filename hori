@@ -86,7 +86,6 @@ hook() { # execute <1:hook> in <@:packages>
       . "$REPO/$p/hori.sh"
       if type "$h" >/dev/null 2>&1; then
         case $h in
-          #autostart) notify "autostart $PACK" ;;
           add) mkdir -p "$HORI/$p" ;;
         esac
         yell "<$h> in {$p}"
@@ -100,6 +99,8 @@ hook() { # execute <1:hook> in <@:packages>
     ) ; unset PACK
   done
 }
+
+# -- main
 
 HORI="$HOME/.config/hori"
 REPO="$(cat "$HORI/.repo" 2>/dev/null \
