@@ -44,6 +44,10 @@ template() { # render <1:file> with the current context
 
 # -- actions
 
+launch() { # kill existing <1:process> and run <@:command>
+  pkill -x "$1" ; sleep 0.2 ; "$@"
+}
+
 render() { # render <1:file(rel)> and return its path
   local source=$REPO/$PACK/$1
   local target=$HORI/$PACK/$1
