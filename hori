@@ -127,8 +127,7 @@ hook() { # execute <1:hook> in <@:packages>
 # -- main
 
 HORI="$HOME/.config/hori"
-REPO="$(cat "$HORI/.repo" 2>/dev/null \
-  || find ~ -type f -name "repository.hori" -print -quit 2>/dev/null)"
+REPO="$(cat "$HORI/.repo" 2>/dev/null || dirname "$(find ~ -type f -name "repository.hori" -print -quit 2>/dev/null)")"
 
 if [ -f "$REPO/repository.hori" ]; then
   echo "$REPO" > "$HORI/.repo"
@@ -140,7 +139,7 @@ import conf
 
 cmd=$1 ; shift
 case $cmd in
-  -h|--help|"") echo "\$ hori <hook> (<package(s)>|-i|-a)" ;;
+  -h|--help|"") echo "\$ hori <hook> (<package(s)>|-i|-a)\n  from $REPO" ;;
   l|list) list "$@" ;;
   e|edit) edit "$@" ;;
   *) hook "$cmd" "$@" ;;
