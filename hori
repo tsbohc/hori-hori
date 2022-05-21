@@ -130,6 +130,7 @@ HORI="$HOME/.config/hori"
 REPO="$(cat "$HORI/.repo" 2>/dev/null || dirname "$(find ~ -type f -name "repository.hori" -print -quit 2>/dev/null)")"
 
 if [ -f "$REPO/repository.hori" ]; then
+  mkdir -p "$HORI"
   echo "$REPO" > "$HORI/.repo"
 else
   yell "could not find repo, aborting" ; exit 1
